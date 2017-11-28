@@ -14,12 +14,15 @@ import com.badlogic.gdx.graphics.g3d.Renderable;
 import com.badlogic.gdx.graphics.g3d.RenderableProvider;
 import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
 import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
+import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Quaternion;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.FloatArray;
 import com.badlogic.gdx.utils.Pool;
 
 public class MeshTest extends ApplicationAdapter implements RenderableProvider {
+  private static final int NUM_QUADS_X_Y = 500;
   public PerspectiveCamera cam;
   public ModelBatch modelBatch;
 
@@ -27,12 +30,16 @@ public class MeshTest extends ApplicationAdapter implements RenderableProvider {
   private Material _mat;
   private FloatArray vertices = new FloatArray();
 
+  private float r = NUM_QUADS_X_Y;
+  private float theta = 0f;
+  private float phi = 0f;
+
   @Override
   public void create() {
     modelBatch = new ModelBatch();
 
     cam = new PerspectiveCamera(67, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-    cam.position.set(0f, 10f, -10f);
+    cam.position.set(0f, 100f, 0f);
     cam.lookAt(0, 0, 0);
     cam.near = 1f;
     cam.far = 1000f;
@@ -50,9 +57,9 @@ public class MeshTest extends ApplicationAdapter implements RenderableProvider {
   }
 
   private void initMesh() {
-    for (int i = 0; i < 20; i++) {
-      for (int j = 0; j < 20; j++) {
-        addQuadVertices(i - 10, j, 20f);
+    for (int i = 0; i < NUM_QUADS_X_Y; i++) {
+      for (int j = 0; j < NUM_QUADS_X_Y; j++) {
+        addQuadVertices(i - NUM_QUADS_X_Y / 2, j - NUM_QUADS_X_Y / 2, 1f);
       }
     }
     _mesh = new Mesh(true, vertices.size, 0, new VertexAttributes(VertexAttribute.Position(), VertexAttribute.TexCoords(0)));
@@ -60,13 +67,13 @@ public class MeshTest extends ApplicationAdapter implements RenderableProvider {
   }
 
   private void addQuadVertices(final int x, final int z, final float scale) {
-    addVertex(x * scale, 0f, z * scale);
-    addVertex(x * scale, 0f, (z + 1) * scale);
-    addVertex((x + 1) * scale, 0f, (z + 1) * scale);
+    addVertex(x * scale, MathUtils.random(10f), z * scale);
+    addVertex(x * scale, MathUtils.random(10f), (z + 1) * scale);
+    addVertex((x + 1) * scale, MathUtils.random(10f), (z + 1) * scale);
 
-    addVertex(x * scale, 0f, z * scale);
-    addVertex((x + 1) * scale, 0f, (z + 1) * scale);
-    addVertex((x + 1) * scale, 0f, z * scale);
+    addVertex(x * scale, MathUtils.random(10f), z * scale);
+    addVertex((x + 1) * scale, MathUtils.random(10f), (z + 1) * scale);
+    addVertex((x + 1) * scale, MathUtils.random(10f), z * scale);
   }
 
   private void addVertex(final float x, final float y, final float z) {
@@ -88,6 +95,17 @@ public class MeshTest extends ApplicationAdapter implements RenderableProvider {
     modelBatch.begin(cam);
     modelBatch.render(this);
     modelBatch.end();
+
+    Quaternion q = new Quaternion(new Vector3(0.1f, 1f, 0.2f).nor(), 10f * Gdx.graphics.getDeltaTime());
+    cam.rotate(q);
+    theta += 1f * Gdx.graphics.getDeltaTime();
+    phi += 0.1f * Gdx.graphics.getDeltaTime();
+    cam.position.set(
+        r * MathUtils.sin(theta) * MathUtils.cos(phi),
+        r * MathUtils.cos(theta) * MathUtils.sin(phi),
+        r * MathUtils.cos(phi));
+    cam.lookAt(0f, 0f, 0f);
+    cam.update();
   }
 
   @Override
