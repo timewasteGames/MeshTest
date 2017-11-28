@@ -22,7 +22,8 @@ import com.badlogic.gdx.utils.FloatArray;
 import com.badlogic.gdx.utils.Pool;
 
 public class MeshTest extends ApplicationAdapter implements RenderableProvider {
-  private static final int NUM_QUADS_X_Y = 500;
+  private static final int NUM_QUADS_X_Y = 1000;
+  private static final float JAGGEDNESS = 50f;
   public PerspectiveCamera cam;
   public ModelBatch modelBatch;
 
@@ -42,7 +43,7 @@ public class MeshTest extends ApplicationAdapter implements RenderableProvider {
     cam.position.set(0f, 100f, 0f);
     cam.lookAt(0, 0, 0);
     cam.near = 1f;
-    cam.far = 1000f;
+    cam.far = 2000f;
     cam.update();
 
     initMaterial();
@@ -67,13 +68,13 @@ public class MeshTest extends ApplicationAdapter implements RenderableProvider {
   }
 
   private void addQuadVertices(final int x, final int z, final float scale) {
-    addVertex(x * scale, MathUtils.random(10f), z * scale);
-    addVertex(x * scale, MathUtils.random(10f), (z + 1) * scale);
-    addVertex((x + 1) * scale, MathUtils.random(10f), (z + 1) * scale);
+    addVertex(x * scale, MathUtils.random(JAGGEDNESS), z * scale);
+    addVertex(x * scale, MathUtils.random(JAGGEDNESS), (z + 1) * scale);
+    addVertex((x + 1) * scale, MathUtils.random(JAGGEDNESS), (z + 1) * scale);
 
-    addVertex(x * scale, MathUtils.random(10f), z * scale);
-    addVertex((x + 1) * scale, MathUtils.random(10f), (z + 1) * scale);
-    addVertex((x + 1) * scale, MathUtils.random(10f), z * scale);
+    addVertex(x * scale, MathUtils.random(JAGGEDNESS), z * scale);
+    addVertex((x + 1) * scale, MathUtils.random(JAGGEDNESS), (z + 1) * scale);
+    addVertex((x + 1) * scale, MathUtils.random(JAGGEDNESS), z * scale);
   }
 
   private void addVertex(final float x, final float y, final float z) {
@@ -96,14 +97,14 @@ public class MeshTest extends ApplicationAdapter implements RenderableProvider {
     modelBatch.render(this);
     modelBatch.end();
 
-    Quaternion q = new Quaternion(new Vector3(0.1f, 1f, 0.2f).nor(), 10f * Gdx.graphics.getDeltaTime());
+    Quaternion q = new Quaternion(new Vector3(0.1f, 1f, 0.2f).nor(), JAGGEDNESS * Gdx.graphics.getDeltaTime());
     cam.rotate(q);
-    theta += 1f * Gdx.graphics.getDeltaTime();
-    phi += 0.1f * Gdx.graphics.getDeltaTime();
+    theta += 0.1f * Gdx.graphics.getDeltaTime();
+    phi += 0.010174f * Gdx.graphics.getDeltaTime();
     cam.position.set(
-        r * MathUtils.sin(theta) * MathUtils.cos(phi),
+        r * MathUtils.cos(theta) * MathUtils.cos(phi),
         r * MathUtils.cos(theta) * MathUtils.sin(phi),
-        r * MathUtils.cos(phi));
+        r * MathUtils.sin(theta));
     cam.lookAt(0f, 0f, 0f);
     cam.update();
   }
