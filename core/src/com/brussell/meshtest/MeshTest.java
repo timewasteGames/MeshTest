@@ -15,11 +15,11 @@ import com.badlogic.gdx.graphics.g3d.RenderableProvider;
 import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
 import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
 import com.badlogic.gdx.math.MathUtils;
-import com.badlogic.gdx.math.Quaternion;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.FloatArray;
 import com.badlogic.gdx.utils.Pool;
+import com.badlogic.gdx.utils.ShortArray;
 
 public class MeshTest extends ApplicationAdapter implements RenderableProvider {
   private static final int NUM_QUADS_X_Y = 1000;
@@ -30,6 +30,7 @@ public class MeshTest extends ApplicationAdapter implements RenderableProvider {
   private Mesh _mesh;
   private Material _mat;
   private FloatArray vertices = new FloatArray();
+  private ShortArray indices = new ShortArray();
 
   private float r = NUM_QUADS_X_Y;
   private float theta = 0f;
@@ -47,7 +48,7 @@ public class MeshTest extends ApplicationAdapter implements RenderableProvider {
     cam.update();
 
     initMaterial();
-    initMesh();
+    initMeshVerticesOnly();
     Gdx.input.setInputProcessor(new CameraInputController(cam));
   }
 
@@ -57,7 +58,7 @@ public class MeshTest extends ApplicationAdapter implements RenderableProvider {
     _mat = new Material(TextureAttribute.createDiffuse(texture));
   }
 
-  private void initMesh() {
+  private void initMeshVerticesOnly() {
     for (int i = 0; i < NUM_QUADS_X_Y; i++) {
       for (int j = 0; j < NUM_QUADS_X_Y; j++) {
         addQuadVertices(i - NUM_QUADS_X_Y / 2, j - NUM_QUADS_X_Y / 2, 1f);
@@ -97,10 +98,8 @@ public class MeshTest extends ApplicationAdapter implements RenderableProvider {
     modelBatch.render(this);
     modelBatch.end();
 
-    Quaternion q = new Quaternion(new Vector3(0.1f, 1f, 0.2f).nor(), JAGGEDNESS * Gdx.graphics.getDeltaTime());
-    cam.rotate(q);
-    theta += 0.1f * Gdx.graphics.getDeltaTime();
-    phi += 0.010174f * Gdx.graphics.getDeltaTime();
+    theta += 0.5f * Gdx.graphics.getDeltaTime();
+    phi += 0.050174f * Gdx.graphics.getDeltaTime();
     cam.position.set(
         r * MathUtils.cos(theta) * MathUtils.cos(phi),
         r * MathUtils.cos(theta) * MathUtils.sin(phi),
