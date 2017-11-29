@@ -4,6 +4,7 @@ import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.InputMultiplexer;
+import com.badlogic.gdx.graphics.FPSLogger;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Mesh;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
@@ -25,54 +26,48 @@ import com.badlogic.gdx.utils.Pool;
 import com.badlogic.gdx.utils.ShortArray;
 
 public class MeshTest extends ApplicationAdapter implements RenderableProvider {
-  private static final int NUM_QUADS_X_Y = 1500;
+  private static final int NUM_CHUNKS_X_Y = 50;
+  private static final int NUM_QUADS_X_Y = 50;
   private static final int NUM_FLOATS_TO_DEFINE_VERTEX = 5;
-  private static final float LUMPYNESS = 50f;
+  private static final float LUMPINESS = 50f;
   private static final float SCALE = 1f;
 
-  public PerspectiveCamera cam;
-  public ModelBatch modelBatch;
+  private static final FPSLogger FPS_LOGGER = new FPSLogger();
 
-  private Mesh _mesh;
+  public PerspectiveCamera _cam;
+  public ModelBatch _modelBatch;
+
+  private Array<Mesh> _meshes = new Array<Mesh>();
   private Material _mat;
   private FloatArray vertices = new FloatArray();
   private ShortArray indices = new ShortArray();
 
-  private float r = NUM_QUADS_X_Y * SCALE;
-  private float theta = 0f;
-  private float phi = 0f;
+  private float _r = NUM_CHUNKS_X_Y * NUM_QUADS_X_Y * SCALE;
+  private float _theta = 0f;
+  private float _phi = 0f;
 
   private boolean INDEX_VERTICES = false;
 
   @Override
   public void create() {
-    modelBatch = new ModelBatch();
+    _modelBatch = new ModelBatch();
 
-    cam = new PerspectiveCamera(67, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-    cam.near = 1f;
-    cam.far = 5000f;
+    _cam = new PerspectiveCamera(67, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+    _cam.near = 1f;
+    _cam.far = 5000f;
 
     initMaterial();
-    initMesh();
-    Gdx.input.setInputProcessor(new InputMultiplexer(new CameraInputController(cam), new InputAdapter() {
+    initMeshes();
+    Gdx.input.setInputProcessor(new InputMultiplexer(new CameraInputController(_cam), new InputAdapter() {
       @Override
       public boolean keyUp(final int keycode) {
-        _mesh.dispose();
-        vertices.clear();
-        indices.clear();
-        initMesh();
+        for (Mesh mesh : _meshes) {
+          mesh.dispose();
+        }
+        initMeshes();
         return true;
       }
     }));
-  }
-
-  private void initMesh() {
-    if (INDEX_VERTICES) {
-      initMeshVerticesAndIndices();
-    }
-    else {
-      initMeshVerticesOnly();
-    }
   }
 
   private void initMaterial() {
@@ -82,25 +77,52 @@ public class MeshTest extends ApplicationAdapter implements RenderableProvider {
     _mat.set(IntAttribute.createCullFace(1));
   }
 
-  private void initMeshVerticesAndIndices() {
-    for (int i = 0; i < NUM_QUADS_X_Y; i++) {
-      for (int j = 0; j < NUM_QUADS_X_Y; j++) {
-        addIndexedQuadVertices(i - NUM_QUADS_X_Y / 2, j - NUM_QUADS_X_Y / 2, SCALE);
+  private void initMeshes() {
+    _meshes.clear();
+    for (int i = 0; i < NUM_CHUNKS_X_Y; i++) {
+      for (int j = 0; j < NUM_CHUNKS_X_Y; j++) {
+        if (INDEX_VERTICES) {
+          _meshes.add(initMeshVerticesAndIndices(i - NUM_CHUNKS_X_Y / 2, j - NUM_CHUNKS_X_Y / 2));
+        }
+        else {
+          _meshes.add(initMeshVerticesOnly(i - NUM_CHUNKS_X_Y / 2, j - NUM_CHUNKS_X_Y / 2));
+        }
+        vertices.clear();
+        indices.clear();
       }
     }
-    _mesh = new Mesh(true, vertices.size, indices.size, VertexAttribute.Position(), VertexAttribute.TexCoords(0));
-    _mesh.setVertices(vertices.toArray());
-    _mesh.setIndices(indices.toArray());
   }
 
-  private void addIndexedQuadVertices(final int x, final int z, final float scale) {
-    indices.add(addIndexedVertex(x * scale, MathUtils.sinDeg(z) * LUMPYNESS, z * scale));
-    indices.add(addIndexedVertex(x * scale, MathUtils.sinDeg(z + 1) * LUMPYNESS, (z + 1) * scale));
-    indices.add(addIndexedVertex((x + 1) * scale, MathUtils.sinDeg(z + 1) * LUMPYNESS, (z + 1) * scale));
+  private Mesh initMeshVerticesAndIndices(final int xChunk, final int zChunk) {
+    for (int i = 0; i < NUM_QUADS_X_Y; i++) {
+      for (int j = 0; j < NUM_QUADS_X_Y; j++) {
+        addIndexedQuadVertices(i - NUM_QUADS_X_Y / 2, j - NUM_QUADS_X_Y / 2, xChunk, zChunk);
+      }
+    }
+    Mesh mesh = new Mesh(true, vertices.size, indices.size, VertexAttribute.Position(), VertexAttribute.TexCoords(0));
+    mesh.setVertices(vertices.toArray());
+    mesh.setIndices(indices.toArray());
+    return mesh;
+  }
 
-    indices.add(addIndexedVertex(x * scale, MathUtils.sinDeg(z) * LUMPYNESS, z * scale));
-    indices.add(addIndexedVertex((x + 1) * scale, MathUtils.sinDeg(z + 1) * LUMPYNESS, (z + 1) * scale));
-    indices.add(addIndexedVertex((x + 1) * scale, MathUtils.sinDeg(z) * LUMPYNESS, z * scale));
+  private void addIndexedQuadVertices(final int x, final int z, final int xChunk, final int zChunk) {
+    float xOffset = xChunk * NUM_QUADS_X_Y * SCALE;
+    float zOffset = zChunk * NUM_QUADS_X_Y * SCALE;
+
+    float xLow = x * SCALE - xOffset;
+    float xHigh = (x + 1) * SCALE - xOffset;
+    float yLow = MathUtils.sinDeg(z - zChunk * NUM_QUADS_X_Y) * LUMPINESS;
+    float yHigh = MathUtils.sinDeg(z + 1 - zChunk * NUM_QUADS_X_Y) * LUMPINESS;
+    float zLow = z * SCALE - zOffset;
+    float zHigh = (z + 1) * SCALE - zOffset;
+
+    indices.add(addIndexedVertex(xLow, yLow, zLow));
+    indices.add(addIndexedVertex(xLow, yHigh, zHigh));
+    indices.add(addIndexedVertex(xHigh, yHigh, zHigh));
+
+    indices.add(addIndexedVertex(xLow, yLow, zLow));
+    indices.add(addIndexedVertex(xHigh, yHigh, zHigh));
+    indices.add(addIndexedVertex(xHigh, yLow, zLow));
   }
 
   private short addIndexedVertex(final float x, final float y, final float z) {
@@ -117,24 +139,35 @@ public class MeshTest extends ApplicationAdapter implements RenderableProvider {
     return (short) (vertices.size / NUM_FLOATS_TO_DEFINE_VERTEX - 1);
   }
 
-  private void initMeshVerticesOnly() {
+  private Mesh initMeshVerticesOnly(final int xChunk, final int zChunk) {
     for (int i = 0; i < NUM_QUADS_X_Y; i++) {
       for (int j = 0; j < NUM_QUADS_X_Y; j++) {
-        addQuadVertices(i - NUM_QUADS_X_Y / 2, j - NUM_QUADS_X_Y / 2, SCALE);
+        addQuadVertices(i - NUM_QUADS_X_Y / 2, j - NUM_QUADS_X_Y / 2, xChunk, zChunk);
       }
     }
-    _mesh = new Mesh(true, vertices.size, 0, new VertexAttributes(VertexAttribute.Position(), VertexAttribute.TexCoords(0)));
-    _mesh.setVertices(vertices.toArray());
+    Mesh mesh = new Mesh(true, vertices.size, 0, new VertexAttributes(VertexAttribute.Position(), VertexAttribute.TexCoords(0)));
+    mesh.setVertices(vertices.toArray());
+    return mesh;
   }
 
-  private void addQuadVertices(final int x, final int z, final float scale) {
-    addVertex(x * scale, MathUtils.sinDeg(z) * LUMPYNESS, z * scale);
-    addVertex(x * scale, MathUtils.sinDeg(z + 1) * LUMPYNESS, (z + 1) * scale);
-    addVertex((x + 1) * scale, MathUtils.sinDeg(z + 1) * LUMPYNESS, (z + 1) * scale);
+  private void addQuadVertices(final int x, final int z, final int xChunk, final int zChunk) {
+    float xOffset = xChunk * NUM_QUADS_X_Y * SCALE;
+    float zOffset = zChunk * NUM_QUADS_X_Y * SCALE;
 
-    addVertex(x * scale, MathUtils.sinDeg(z) * LUMPYNESS, z * scale);
-    addVertex((x + 1) * scale, MathUtils.sinDeg(z + 1) * LUMPYNESS, (z + 1) * scale);
-    addVertex((x + 1) * scale, MathUtils.sinDeg(z) * LUMPYNESS, z * scale);
+    float xLow = x * SCALE - xOffset;
+    float xHigh = (x + 1) * SCALE - xOffset;
+    float yLow = MathUtils.sinDeg(z - zChunk * NUM_QUADS_X_Y) * LUMPINESS;
+    float yHigh = MathUtils.sinDeg(z + 1 - zChunk * NUM_QUADS_X_Y) * LUMPINESS;
+    float zLow = z * SCALE - zOffset;
+    float zHigh = (z + 1) * SCALE - zOffset;
+
+    addVertex(xLow, yLow, zLow);
+    addVertex(xLow, yHigh, zHigh);
+    addVertex(xHigh, yHigh, zHigh);
+
+    addVertex(xLow, yLow, zLow);
+    addVertex(xHigh, yHigh, zHigh);
+    addVertex(xHigh, yLow, zLow);
   }
 
   private void addVertex(final float x, final float y, final float z) {
@@ -155,41 +188,45 @@ public class MeshTest extends ApplicationAdapter implements RenderableProvider {
 
     updateCam();
 
-    modelBatch.begin(cam);
-    modelBatch.render(this);
-    modelBatch.end();
+    _modelBatch.begin(_cam);
+    _modelBatch.render(this);
+    _modelBatch.end();
+
+    FPS_LOGGER.log();
   }
 
   private void updateCam() {
-    theta += 0.5f * Gdx.graphics.getDeltaTime();
-    phi += 0.050174f * Gdx.graphics.getDeltaTime();
-    cam.position.set(
-        r * MathUtils.cos(theta) * MathUtils.cos(phi),
-        r * MathUtils.cos(theta) * MathUtils.sin(phi),
-        r * MathUtils.sin(theta));
-    cam.lookAt(0f, 0f, 0f);
-    cam.update();
+    _theta += 0.5f * Gdx.graphics.getDeltaTime();
+    _phi += 0.050174f * Gdx.graphics.getDeltaTime();
+    _cam.position.set(
+        _r * MathUtils.cos(_theta) * MathUtils.cos(_phi),
+        _r * MathUtils.cos(_theta) * MathUtils.sin(_phi),
+        _r * MathUtils.sin(_theta));
+    _cam.lookAt(0f, 0f, 0f);
+    _cam.update();
   }
 
   @Override
   public void dispose() {
-    modelBatch.dispose();
+    _modelBatch.dispose();
   }
 
   @Override
   public void getRenderables(final Array<Renderable> renderables, final Pool<Renderable> pool) {
-    Renderable renderable = pool.obtain();
-    renderable.material = _mat;
-    renderable.meshPart.mesh = _mesh;
-    renderable.meshPart.offset = 0;
-    if (INDEX_VERTICES) {
-      renderable.meshPart.size = _mesh.getNumIndices();
+    for (Mesh mesh : _meshes) {
+      Renderable renderable = pool.obtain();
+      renderable.material = _mat;
+      renderable.meshPart.mesh = mesh;
+      renderable.meshPart.offset = 0;
+      if (INDEX_VERTICES) {
+        renderable.meshPart.size = mesh.getNumIndices();
+      }
+      else {
+        renderable.meshPart.size = mesh.getNumVertices();
+      }
+      renderable.meshPart.primitiveType = GL20.GL_TRIANGLES;
+      renderable.worldTransform.setToTranslation(new Vector3());
+      renderables.add(renderable);
     }
-    else {
-      renderable.meshPart.size = _mesh.getNumVertices();
-    }
-    renderable.meshPart.primitiveType = GL20.GL_TRIANGLES;
-    renderable.worldTransform.setToTranslation(new Vector3());
-    renderables.add(renderable);
   }
 }
